@@ -1,17 +1,32 @@
 
 from string import split
+from collections import OrderedDict
 
 class Table:
     def __init__(self):
-        self.data = {}
+        """Initialize list"""
+        self.columns = {}
+        self.height = 0
+        self.immutable = False
 
-    def __getitem__(self, data_label):
-        return self.data[data_label]
+    def __getitem__(self, handle):
+        if (type(handle) == str and handle in self.data):
+            return self.data[handle]
+        elif (type(handle) == int and handle < self.height and handle >= 0):
+            return {
+                label : column[handle] for label, column in self.data.items()
+            }
+        else:
+            raise KeyError('Table does not contain handle ' + str(handle))
+
 
     def __repr__(self):
         return str(self.data)
 
     def populate(self, file_name, col_delim="\t", row_delim="\n", data_start=None):
+        if self.immutable:
+            return
+        self.immutable = True
         with open(file_name, 'r') as f:
             if data_start:
                 while True:
@@ -20,13 +35,14 @@ class Table:
                         break
             raw_data = f.read()
         rows = [split(raw_row, col_delim) for raw_row in split(raw_data, row_delim)]
+        self.height = len(rows) - 1
         parse_col = lambda index : self._parse_col(rows[1:], index, float)
         self.data = {
             label : parse_col(index) for index, label in enumerate(rows[0])
         }
 
     def _parse_col(self, rows, col_ind, conv=None):
-        if not conv:
+        if conv is None:
             return [row[col_ind] for row in rows]
         try:
             return [conv(row[col_ind]) for row in rows]
@@ -36,21 +52,16 @@ class Table:
             raise IndexError('A data element is missing.')
 
     # returns dict of format {class_id : { label : data_column}}
-    def get_classified_columns(self, classifier, class_label, *labels):
-        if len(labels) is 0:
-            labels = [class_label]
+    def get_classified_columns(self, classifier):
         classes = {}
-        class_col = self[class_label]
-        for row_ind in range(len(class_col)):
-            class_id = class_col[row_ind]
-            if classifier is not None:
-                class_id = classifier(class_id)
-            for label in labels:
-                col = self.data[label]
-                if class_id not in classes:
-                    classes[class_id] = {}
+        for row_ind in range(self.height):
+            class_id = classifier(self[row_ind])
+            if class_id not in classes:
+                classes[class_id] = {}
+            for label in self.data.keys():
                 if label not in classes[class_id]:
                     classes[class_id][label] = []
+                col = self[label]
                 classes[class_id][label].append(col[row_ind])
         return classes
 
