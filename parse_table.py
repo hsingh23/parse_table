@@ -5,6 +5,12 @@ class Table:
     def __init__(self):
         self.data = {}
 
+    def __getitem__(self, data_label):
+        return self.data[data_label]
+
+    def __repr__(self):
+        return str(self.data)
+
     def populate(self, file_name, col_delim="\t", row_delim="\n", data_start=None):
         with open(file_name, 'r') as f:
             if data_start:
@@ -29,15 +35,12 @@ class Table:
         except IndexError:
             raise IndexError('A data element is missing.')
 
-    def get_column(self, data_label):
-        return self.data[data_label]
-
     # returns dict of format {class_id : { label : data_column}}
     def get_classified_columns(self, classifier, class_label, *labels):
         if len(labels) is 0:
             labels = [class_label]
         classes = {}
-        class_col = self.get_column(class_label)
+        class_col = self[class_label]
         for row_ind in range(len(class_col)):
             class_id = class_col[row_ind]
             if classifier is not None:
@@ -52,5 +55,5 @@ class Table:
         return classes
 
     def map_columns(self, fn, *labels):
-        columns = [self.get_column(l) for l in labels]
+        columns = [self[l] for l in labels]
         return map(fn, *columns)
