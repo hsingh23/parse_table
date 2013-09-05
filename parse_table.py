@@ -10,7 +10,7 @@ class Table:
             if data_start:
                 while True:
                     a = f.readline()
-                    if a == data_start:
+                    if data_start in a:
                         break
             raw_data = f.read()
         rows = [split(raw_row, col_delim) for raw_row in split(raw_data, row_delim)]
