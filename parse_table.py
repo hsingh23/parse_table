@@ -1,32 +1,14 @@
 
-from string import split
-from collections import OrderedDict
+import string
 
 class Table:
-    def __init__(self):
-        """Initialize list"""
-        self.columns = {}
-        self.height = 0
-        self.immutable = False
+    def __init__(self, labels, rows):
+        self.labels = labels
+        self.rows = rows
+        self.inverted = {label: index for index, label in enumerate(labels)}
 
-    def __getitem__(self, handle):
-        if (type(handle) == str and handle in self.data):
-            return self.data[handle]
-        elif (type(handle) == int and handle < self.height and handle >= 0):
-            return {
-                label : column[handle] for label, column in self.data.items()
-            }
-        else:
-            raise KeyError('Table does not contain handle ' + str(handle))
-
-
-    def __repr__(self):
-        return str(self.data)
-
-    def populate(self, file_name, col_delim="\t", row_delim="\n", data_start=None):
-        if self.immutable:
-            return
-        self.immutable = True
+    @classmethod
+    def from_file(cls, file_name, col_delim="\t", row_delim="\n", data_start=None):
         with open(file_name, 'r') as f:
             if data_start:
                 while True:
@@ -34,36 +16,48 @@ class Table:
                     if data_start in a:
                         break
             raw_data = f.read()
-        rows = [split(raw_row, col_delim) for raw_row in split(raw_data, row_delim)]
-        self.height = len(rows) - 1
-        parse_col = lambda index : self._parse_col(rows[1:], index, float)
-        self.data = {
-            label : parse_col(index) for index, label in enumerate(rows[0])
-        }
+        return cls.from_raw_data(raw_data, col_delim, row_delim)
 
-    def _parse_col(self, rows, col_ind, conv=None):
-        if conv is None:
-            return [row[col_ind] for row in rows]
-        try:
-            return [conv(row[col_ind]) for row in rows]
-        except ValueError:
-            return self._parse_col(rows, col_ind, None)
-        except IndexError:
-            raise IndexError('A data element is missing.')
+    @classmethod
+    def from_raw_data(cls, raw_data, col_delim="\t", row_delim="\n"):
+        rows = [string.split(raw_row, col_delim) for raw_row in string.split(raw_data, row_delim)]
+        data_rows = rows[1:]
+        for col_ind in range(len(rows[0])):
+            new_rows = []
+            for row_ind, row in enumerate(data_rows):
+                new_row = list(row)
+                try:
+                    new_row[col_ind] = float(row[col_ind])
+                except ValueError:
+                    new_rows = data_rows
+                    break
+                except IndexError:
+                    raise IndexError('A data element is missing at column ' + col_ind + ' row ' + row_ind + '.')
+                new_rows.append(new_row)
+            data_rows = new_rows
+        return cls(rows[0], data_rows)
 
-    # returns dict of format {class_id : { label : data_column}}
+    def __getitem__(self, handle):
+        if (type(handle) == str and handle in self.inverted):
+            col_ind = self.inverted[handle]
+            return [row[col_ind] for row in self.rows]
+        elif (type(handle) == int and handle < len(self.rows) and handle >= 0):
+            return self.rows[handle]
+        else:
+            raise KeyError('Table does not contain handle ' + str(handle))
+
+    def __repr__(self):
+        return '\n' + str(self.labels) + '\n\n' + string.join(map(str, self.rows), '\n') + '\n\n'
+
+    # returns dict of format {class_id : table}
     def get_classified_columns(self, classifier):
         classes = {}
-        for row_ind in range(self.height):
-            class_id = classifier(self[row_ind])
+        for row in self.rows:
+            class_id = classifier(dict(zip(self.labels, row)))
             if class_id not in classes:
-                classes[class_id] = {}
-            for label in self.data.keys():
-                if label not in classes[class_id]:
-                    classes[class_id][label] = []
-                col = self[label]
-                classes[class_id][label].append(col[row_ind])
-        return classes
+                classes[class_id] = []
+            classes[class_id].append(row)
+        return {k : Table(self.labels, v) for k, v in classes.items()}
 
     def map_columns(self, fn, *labels):
         columns = [self[l] for l in labels]
