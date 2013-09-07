@@ -47,7 +47,7 @@ class Table:
             raise KeyError('Table does not contain handle ' + str(handle))
 
     def __repr__(self):
-        return "\n %s \n\n %s \n\n" %(self.labels, string.join(map(str, self.rows))
+        return "\n %s \n\n %s \n\n" %(self.labels, string.join(map(str, self.rows)))
 
     # returns dict of format {class_id : table}
     def get_classified_columns(self, classifier):
