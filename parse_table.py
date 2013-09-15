@@ -1,10 +1,34 @@
 
 import string
+import types
+
+class Row:
+    def __init__(self, elements, labels):
+        self.labels = labels
+        self.elements = elements
+        self.inverted = {label: index for index, label in enumerate(labels)}
+
+    def __getitem__(self, handle):
+        if type(handle) == str and handle in self.inverted:
+            return self.elements[self.inverted[handle]]
+        elif type(handle) == int and handle < len(self.elements) and handle >= 0:
+            return self.elements[handle]
+        elif type(handle) is types.SliceType:
+            return self.elements[handle]
+        else:
+            raise KeyError('Row does not contain handle ' + str(handle))
+
+    def __repr__(self):
+        return str(self.elements)
+
+    def __len__(self):
+        return len(elements)
+
 
 class Table:
-    def __init__(self, labels, rows):
+    def __init__(self, labels, data):
         self.labels = labels
-        self.rows = rows
+        self.rows = [r if isinstance(r, Row) else Row(r, labels) for r in data]
         self.inverted = {label: index for index, label in enumerate(labels)}
 
     @classmethod
@@ -38,27 +62,35 @@ class Table:
         return cls(rows[0], data_rows)
 
     def __getitem__(self, handle):
-        if (type(handle) == str and handle in self.inverted):
+        if type(handle) == str and handle in self.inverted:
             col_ind = self.inverted[handle]
             return [row[col_ind] for row in self.rows]
-        elif (type(handle) == int and handle < len(self.rows) and handle >= 0):
+        elif type(handle) == int and handle < len(self.rows) and handle >= 0:
             return self.rows[handle]
+        elif type(handle) is types.SliceType:
+            return Table(self.labels, self.rows[handle])
         else:
             raise KeyError('Table does not contain handle ' + str(handle))
 
     def __repr__(self):
         return '\n' + str(self.labels) + '\n\n' + string.join(map(str, self.rows), '\n') + '\n\n'
 
+    def __len__(self):
+        return len(rows)
+
+    def filter_rows(self, predicate):
+        new_rows = []
+        for row in self.rows:
+            if predicate(row):
+                new_rows.append(row)
+        return Table(self.labels, new_rows)
+
     # returns dict of format {class_id : table}
     def get_classified_columns(self, classifier):
         classes = {}
         for row in self.rows:
-            class_id = classifier(dict(zip(self.labels, row)))
+            class_id = classifier(row)
             if class_id not in classes:
                 classes[class_id] = []
             classes[class_id].append(row)
         return {k : Table(self.labels, v) for k, v in classes.items()}
-
-    def map_columns(self, fn, *labels):
-        columns = [self[l] for l in labels]
-        return map(fn, *columns)
