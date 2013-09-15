@@ -1,5 +1,5 @@
-
-import string
+from string import join
+from re import split
 import types
 
 class Row:
@@ -32,7 +32,7 @@ class Table:
         self.inverted = {label: index for index, label in enumerate(labels)}
 
     @classmethod
-    def from_file(cls, file_name, col_delim="\t", row_delim="\n", data_start=None):
+    def from_file(cls, file_name, col_delim="\s+", row_delim="\n", data_start=None):
         with open(file_name, 'r') as f:
             if data_start:
                 while True:
@@ -43,8 +43,8 @@ class Table:
         return cls.from_raw_data(raw_data, col_delim, row_delim)
 
     @classmethod
-    def from_raw_data(cls, raw_data, col_delim="\t", row_delim="\n"):
-        rows = [string.split(raw_row, col_delim) for raw_row in string.split(raw_data, row_delim)]
+    def from_raw_data(cls, raw_data, col_delim="\s+", row_delim="\n"):
+        rows = [split(col_delim, raw_row) for raw_row in split(row_delim, raw_data) if raw_row]
         data_rows = rows[1:]
         for col_ind in range(len(rows[0])):
             new_rows = []
@@ -56,7 +56,7 @@ class Table:
                     new_rows = data_rows
                     break
                 except IndexError:
-                    raise IndexError('A data element is missing at column ' + col_ind + ' row ' + row_ind + '.')
+                    raise IndexError('A data element is missing at column %s row_ind %s.' %(col_ind, row_ind))
                 new_rows.append(new_row)
             data_rows = new_rows
         return cls(rows[0], data_rows)
@@ -73,7 +73,7 @@ class Table:
             raise KeyError('Table does not contain handle ' + str(handle))
 
     def __repr__(self):
-        return '\n' + str(self.labels) + '\n\n' + string.join(map(str, self.rows), '\n') + '\n\n'
+        return "\n %s \n\n %s \n\n" %(self.labels, join(map(str, self.rows)))
 
     def __len__(self):
         return len(rows)
