@@ -1,5 +1,6 @@
 from string import join
 from re import split
+from collections import Iterator
 import types
 
 class Row:
@@ -7,6 +8,7 @@ class Row:
         self.labels = labels
         self.elements = elements
         self.inverted = {label: index for index, label in enumerate(labels)}
+
 
     def __getitem__(self, handle):
         if type(handle) == str and handle in self.inverted:
@@ -22,14 +24,21 @@ class Row:
         return str(self.elements)
 
     def __len__(self):
-        return len(elements)
+        return len(self.elements)
 
-
-class Table:
+class Table(Iterator):
     def __init__(self, labels, data):
         self.labels = labels
         self.rows = [r if isinstance(r, Row) else Row(r, labels) for r in data]
         self.inverted = {label: index for index, label in enumerate(labels)}
+        self.iter_index = 0
+
+    def next(self):
+        self.iter_index +=1
+        if self.iter_index == len(self):
+            self.iter_index = 0
+            raise StopIteration
+        return self[self.iter_index]
 
     @classmethod
     def from_file(cls, file_name, col_delim="\s+", row_delim="\n", data_start=None):
@@ -52,6 +61,8 @@ class Table:
                 new_row = list(row)
                 try:
                     new_row[col_ind] = float(row[col_ind])
+                    if new_row[col_ind].is_integer():
+                        new_row[col_ind] = int(new_row[col_ind])
                 except ValueError:
                     new_rows = data_rows
                     break
@@ -76,7 +87,7 @@ class Table:
         return "\n %s \n\n %s \n\n" %(self.labels, join(map(str, self.rows)))
 
     def __len__(self):
-        return len(rows)
+        return len(self.rows)
 
     def filter_rows(self, predicate):
         new_rows = []
